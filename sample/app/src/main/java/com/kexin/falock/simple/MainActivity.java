@@ -144,6 +144,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     protected void onDestroy() {
         unbindService(mServiceConnection);
+        KexinNet.getInstance().destroyInstance();
         super.onDestroy();
     }
 

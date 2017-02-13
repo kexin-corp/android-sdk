@@ -16,10 +16,10 @@ import android.widget.Toast;
 import com.kexin.sdk.net.KexinNet;
 import com.kexin.sdk.net.NetCallback;
 import com.kexin.sdk.service.BleService;
-import com.kexin.sdk.service.OnGetLockStateListener;
-import com.kexin.sdk.service.OnInitLockListener;
-import com.kexin.sdk.service.OnOpenLockListener;
-import com.kexin.sdk.service.OnSyncLockListener;
+import com.kexin.sdk.service.listener.OnGetLockStateListener;
+import com.kexin.sdk.service.listener.OnInitLockListener;
+import com.kexin.sdk.service.listener.OnOpenLockListener;
+import com.kexin.sdk.service.listener.OnSyncLockListener;
 import com.kexin.sdk.utils.MyLog;
 
 import org.json.JSONException;

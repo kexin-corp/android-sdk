@@ -2,7 +2,7 @@ package com.kexin.falock.simple;
 
 import android.app.Application;
 
-import com.kexin.sdk.net.KexinNet;
+import com.kexin.sdk.net.KexinHttp;
 
 /**
  * Created by wyt on 2017/2/8.
@@ -14,7 +14,11 @@ public class MyApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
-        KexinNet.initialize("app_xbed", "http://app.fastboot.net.cn", "http://120.24.182.70:9000");
-        KexinNet.setDebug(true);
+
+        KexinHttp.initialize("app_xbed",
+                "https://app.fastboot.net.cn",
+                getExternalCacheDir().getAbsolutePath(),
+                false);
     }
+
 }

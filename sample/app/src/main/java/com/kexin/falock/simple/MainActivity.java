@@ -1,6 +1,7 @@
 package com.kexin.falock.simple;
 
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Bundle;
@@ -13,20 +14,28 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.kexin.sdk.net.KexinNet;
-import com.kexin.sdk.net.NetCallback;
+import com.kexin.sdk.net.KexinHttp;
+import com.kexin.sdk.net.KexinHttpCallback;
+import com.kexin.sdk.net.NetCode;
 import com.kexin.sdk.service.BleService;
+import com.kexin.sdk.service.BleServiceBinder;
 import com.kexin.sdk.service.listener.OnGetLockStateListener;
 import com.kexin.sdk.service.listener.OnInitLockListener;
 import com.kexin.sdk.service.listener.OnOpenLockListener;
 import com.kexin.sdk.service.listener.OnSyncLockListener;
+import com.kexin.sdk.utils.EasyToast;
 import com.kexin.sdk.utils.MyLog;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener{
+import java.io.IOException;
 
+import okhttp3.Call;
+
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+
+    private Context mContext;
     /**
      * 数据、状态
      */
@@ -43,6 +52,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        mContext = this;
 
         et1 = (EditText) findViewById(R.id.editText1);
         et2 = (EditText) findViewById(R.id.editText2);
@@ -144,14 +154,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     protected void onDestroy() {
         unbindService(mServiceConnection);
-        KexinNet.getInstance().destroyInstance();
         super.onDestroy();
     }
 
     private ServiceConnection mServiceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
-            mBleService = ((BleService.BleServiceBinder) service).getService();
+            mBleService = ((BleServiceBinder)service).getService();
             if (!mBleService.initialize()) {
                 MyLog.e("蓝牙初始化失败！");
                 return;
@@ -179,21 +188,28 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 } catch (NumberFormatException e) {
                     e.printStackTrace();
                 }
-                KexinNet.getInstance().faLockGetLockPassword(lockId, (int) (System.currentTimeMillis() / 1000),
-                        300, new NetCallback() {
+                KexinHttp.getInstance().faLockGetLockPassword(lockId, (int) (System.currentTimeMillis() / 1000),
+                        300, new KexinHttpCallback() {
                             @Override
-                            public void onCallback(String json) {
-                                MyLog.i("==============json=" + json);
+                            public void onFailure(Call call, IOException e) {
+
+                            }
+
+                            @Override
+                            public void onResponse(int code, String message, String response) {
+                                MyLog.i("==============response=" + response);
                                 try {
-                                    JSONObject jsonObject = new JSONObject(json);
-                                    int code = jsonObject.getInt("code");
+                                    JSONObject jsonObject = new JSONObject(response);
+//                                    int codeRes = jsonObject.getInt("code"); // 也可以使用json返回的code
                                     if (code == 200) {
                                         JSONObject obj = jsonObject.getJSONObject("data");
                                         pwd = obj.getString("password");
                                         int seq = obj.getInt("seq"); //用于上报开锁结果
                                         tv1.setText(pwd);
                                     } else {
-                                        tv1.setText(json);
+                                        // 错误提示
+                                        EasyToast.showLong(mContext, NetCode.getMessageForCode(code));
+                                        tv1.setText(response);
                                     }
                                 } catch (JSONException e) {
                                     e.printStackTrace();
@@ -225,27 +241,34 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
             case R.id.button3: //获取初始化数据
                 tv3.setText("加载中...");
-                KexinNet.getInstance().faLockInitLock(et2.getText().toString().trim().toUpperCase(), new NetCallback() {
-                    @Override
-                    public void onCallback(String json) {
-                        MyLog.e("faLockInitLock json:" + json);
-                        try {
-                            JSONObject jsonObject = new JSONObject(json);
-                            int code = jsonObject.getInt("code");
-                            if (code == 200) {
-                                JSONObject obj = jsonObject.getJSONObject("data");
-                                privateKey = obj.getString("private_key");
-                                activeKey = obj.getString("active_key");
-                                keySeq = obj.getString("key_seq");
-                                tv3.setText("pk:" + privateKey + "\nak:" + activeKey + "\nseq:" + keySeq);
-                            } else {
-                                tv3.setText(json);
+                KexinHttp.getInstance().faLockInitLock(et2.getText().toString().trim().toUpperCase(),
+                        new KexinHttpCallback() {
+                            @Override
+                            public void onFailure(Call call, IOException e) {
+
                             }
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                });
+
+                            @Override
+                            public void onResponse(int code, String message, String response) {
+                                MyLog.e("faLockInitLock json:" + response);
+                                try {
+                                    JSONObject jsonObject = new JSONObject(response);
+                                    int codeRes = jsonObject.getInt("code");
+                                    if (codeRes == 200) {
+                                        JSONObject obj = jsonObject.getJSONObject("data");
+                                        privateKey = obj.getString("private_key");
+                                        activeKey = obj.getString("active_key");
+                                        keySeq = obj.getString("key_seq");
+                                        tv3.setText("pk:" + privateKey + "\nak:" + activeKey + "\nseq:" + keySeq);
+                                    } else {
+                                        tv3.setText(response);
+                                    }
+                                } catch (JSONException e) {
+                                    e.printStackTrace();
+                                }
+
+                            }
+                        });
                 break;
             case R.id.button4: //初始化
                 try {
@@ -277,27 +300,34 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 } catch (NumberFormatException e) {
                     e.printStackTrace();
                 }
-                KexinNet.getInstance().faLockGetLockSeq(lockId, new NetCallback() {
-                    @Override
-                    public void onCallback(String json) {
-                        MyLog.i("faLockGetLockSeq json:" + json);
-                        try {
-                            JSONObject jsonObject = new JSONObject(json);
-                            int code = jsonObject.getInt("code");
-                            if (code == 200) {
-                                JSONObject obj = jsonObject.getJSONObject("data");
-                                key1 = obj.getString("key1");
-                                key2 = obj.getString("key2");
-                                seq = obj.getString("seq");
-                                tv5.setText("key1:" + key1 + "\nkey2:" + key2 + "\nseq:" + seq);
-                            } else {
-                                tv5.setText(json);
+                KexinHttp.getInstance().faLockGetLockSeq(lockId,
+                        new KexinHttpCallback() {
+                            @Override
+                            public void onFailure(Call call, IOException e) {
+
                             }
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                });
+
+                            @Override
+                            public void onResponse(int code, String message, String response) {
+                                MyLog.i("faLockGetLockSeq json:" + response);
+                                try {
+                                    JSONObject jsonObject = new JSONObject(response);
+                                    int codeRes = jsonObject.getInt("code");
+                                    if (codeRes == 200) {
+                                        JSONObject obj = jsonObject.getJSONObject("data");
+                                        key1 = obj.getString("key1");
+                                        key2 = obj.getString("key2");
+                                        seq = obj.getString("seq");
+                                        tv5.setText("key1:" + key1 + "\nkey2:" + key2 + "\nseq:" + seq);
+                                    } else {
+                                        tv5.setText(response);
+                                    }
+                                } catch (JSONException e) {
+                                    e.printStackTrace();
+                                }
+
+                            }
+                        });
                 break;
             case R.id.button6: //时间同步
                 try {
@@ -355,6 +385,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 tv2.setText("状态");
                 tv4.setText("状态");
                 tv6.setText("状态");
+//                et1.setText("");
+//                et2.setText("");
                 break;
             default:
                 break;
@@ -380,5 +412,4 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
         }
     }
-
 }

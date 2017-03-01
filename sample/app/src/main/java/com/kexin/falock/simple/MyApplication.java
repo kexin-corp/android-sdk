@@ -17,6 +17,7 @@ public class MyApplication extends Application {
 
         KexinHttp.initialize("app_xbed",
                 "https://app.fastboot.net.cn",
+//                "http://172.13.31.163:30080",
                 getExternalCacheDir().getAbsolutePath(),
                 false);
     }

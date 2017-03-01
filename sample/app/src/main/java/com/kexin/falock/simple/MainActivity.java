@@ -200,16 +200,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                                 MyLog.i("==============response=" + response);
                                 try {
                                     JSONObject jsonObject = new JSONObject(response);
-//                                    int codeRes = jsonObject.getInt("code"); // 也可以使用json返回的code
-                                    if (code == 200) {
+//                                    int codeRes = jsonObject.getInt("code"); //也可以使用json返回的code
+                                    if (code == NetCode.RESPONSE_OK) {
                                         JSONObject obj = jsonObject.getJSONObject("data");
                                         pwd = obj.getString("password");
                                         int seq = obj.getInt("seq"); //用于上报开锁结果
                                         tv1.setText(pwd);
                                     } else {
-                                        // 错误提示
-                                        EasyToast.showLong(mContext, NetCode.getMessageForCode(code));
                                         tv1.setText(response);
+                                        // 显示错误信息
+                                        EasyToast.showLong(mContext, NetCode.getMessageForCode(code));
                                     }
                                 } catch (JSONException e) {
                                     e.printStackTrace();
@@ -226,12 +226,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         }
 
                         @Override
-                        public void onResult(int state, boolean openResult, int power) {
+                        public void onResult(int state, int openResult, int power) {
                             MyLog.e("state:" + state + " openResult:" + openResult + " power:" + power);
-                            if (openResult) {
+                            if (openResult == 0) {
                                 tv2.setText("开锁成功");
-                            } else {
-                                tv2.setText("开锁失败");
+                            } else if(openResult == 1){
+                                tv2.setText("需要时间同步");
+                            } else if(openResult == 2){
+                                tv2.setText("密码错误");
                             }
                         }
                     });
@@ -266,7 +268,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                                 } catch (JSONException e) {
                                     e.printStackTrace();
                                 }
-
                             }
                         });
                 break;
@@ -274,9 +275,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 try {
                     mBleService.initLock(privateKey, activeKey, keySeq, et1.getText().toString().trim(), et2.getText().toString().trim().toUpperCase(), new OnInitLockListener() {
                         @Override
-                        public void onResult(boolean result) {
+                        public void onResult(int result) {
                             MyLog.e("result:" + result);
-                            if (result) {
+                            if (result == 0) {
                                 tv4.setText("初始化成功");
                             } else {
                                 tv4.setText("初始化失败");
@@ -325,7 +326,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                                 } catch (JSONException e) {
                                     e.printStackTrace();
                                 }
-
                             }
                         });
                 break;
@@ -334,8 +334,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     mBleService.syncLockTime(key1, key2, seq, et1.getText().toString().trim(),
                             et2.getText().toString().trim().toUpperCase(), new OnSyncLockListener() {
                                 @Override
-                                public void onResult(boolean result) {
-                                    if (result) {
+                                public void onResult(int result) {
+                                    if (result == 0) {
                                         tv6.setText("时间同步成功");
                                     } else {
                                         tv6.setText("时间同步失败");
@@ -356,8 +356,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     mBleService.getLockStatus(et1.getText().toString().trim(), et2.getText().toString().trim().toUpperCase(), new OnGetLockStateListener() {
 
                         @Override
-                        public void onResult(int power, boolean isNeedSyncTime) {
-                            tv7.setText("锁电量：" + power + "%" + "\n是否需要时间同步：" + isNeedSyncTime);
+                        public void onResult(int power, int result) {
+                            tv7.setText("锁电量：" + power + "%" + "\n是否需要时间同步：" + (result == 1));
                         }
 
                         @Override

@@ -4,9 +4,11 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.View;
@@ -39,7 +41,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     /**
      * 数据、状态
      */
-    private TextView tv1, tv2, tv3, tv4, tv5, tv6, tv7;
+    private TextView tv1, tv2, tv3, tv4, tv5, tv6, tv7, tv9;
     private EditText et1, et2;
     private String pwd;
     private String privateKey, activeKey, keySeq;
@@ -54,8 +56,31 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         setContentView(R.layout.activity_main);
         mContext = this;
 
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
+        toolbar.setNavigationOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                finish();
+            }
+        });
+
+        findViewById(R.id.tv_setting_pwd).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivity(new Intent(mContext, PwdSettingActivity.class));
+            }
+        });
+
         et1 = (EditText) findViewById(R.id.editText1);
         et2 = (EditText) findViewById(R.id.editText2);
+
+        SharedPreferences sp = getSharedPreferences("kexin", MODE_PRIVATE);
+        String lockId = sp.getString("lockId", "");
+        String mac = sp.getString("mac", "");
+        et1.setText(lockId);
+        et2.setText(mac);
 
         et2.addTextChangedListener(new TextWatcher() {
 
@@ -135,6 +160,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         tv5 = (TextView) findViewById(R.id.textView5);
         tv6 = (TextView) findViewById(R.id.textView6);
         tv7 = (TextView) findViewById(R.id.textView7);
+        tv9 = (TextView) findViewById(R.id.textView9);
 
         findViewById(R.id.button).setOnClickListener(this);
         findViewById(R.id.button2).setOnClickListener(this);
@@ -144,6 +170,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         findViewById(R.id.button6).setOnClickListener(this);
         findViewById(R.id.button7).setOnClickListener(this);
         findViewById(R.id.button8).setOnClickListener(this);
+        findViewById(R.id.button9).setOnClickListener(this);
 
         //绑定开锁服务
         Intent gattServiceIntent = new Intent(this, BleService.class);
@@ -160,7 +187,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private ServiceConnection mServiceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
-            mBleService = ((BleServiceBinder)service).getService();
+            mBleService = ((BleServiceBinder) service).getService();
             if (!mBleService.initialize()) {
                 MyLog.e("蓝牙初始化失败！");
                 return;
@@ -178,6 +205,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     public void onClick(View v) {
+        SharedPreferences sp = getSharedPreferences("kexin", MODE_PRIVATE);
+        sp.edit().putString("lockId", et1.getText().toString().trim()).putString("mac", et2.getText().toString().trim()).commit();
         switch (v.getId()) {
             case R.id.button: //获取开锁秘钥
                 tv1.setText("加载中...");
@@ -385,8 +414,30 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 tv2.setText("状态");
                 tv4.setText("状态");
                 tv6.setText("状态");
-//                et1.setText("");
-//                et2.setText("");
+                break;
+            case R.id.button9:
+                int lockId2 = 0;
+                try {
+                    lockId2 = Integer.parseInt(et1.getText().toString().trim());
+                } catch (NumberFormatException e) {
+                    e.printStackTrace();
+                }
+                tv9.setText("正在开锁");
+                KexinHttp.getInstance().faLockOpenLock(lockId2, new KexinHttpCallback() {
+                    @Override
+                    public void onFailure(Call call, IOException e) {
+                        tv9.setText("网络异常，开锁失败");
+                    }
+
+                    @Override
+                    public void onResponse(int code, String message, String response) {
+                        if(code == NetCode.RESPONSE_OK){
+                            tv9.setText("开锁成功");
+                        } else {
+                            tv9.setText("开锁失败\nmessage:" + message + "\n错误信息：" + NetCode.getMessageForCode(code));
+                        }
+                    }
+                });
                 break;
             default:
                 break;
